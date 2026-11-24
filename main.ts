@@ -1,19 +1,27 @@
-// The whole job of this program is to hand the sentence stored next to
-// it to the grader, exactly as written. It never edits, trims, or
-// re-encodes anything: the file's bytes are the entry, and the entry is
-// the file's bytes.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+// All this script does is carry the finished sentence from entry.txt to
+// the folder the grader reads, byte for byte. It never edits the text,
+// never trims it, never re-encodes it: the bytes in entry.txt are the
+// entry, and the entry is those bytes.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const here = dirname(fileURLToPath(import.meta.url));
-const sentence = readFileSync(join(here, 'entry.txt'));
-
-// The harness points here when it grades; a plain local run lands in
-// a folder beside the script instead. Either way the same bytes go out,
-// so running it twice can never produce two different entries.
-const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? join(here, 'out');
-if (!existsSync(outDir)) {
-  mkdirSync(outDir, { recursive: true });
+function folderOfScript(): string {
+  return fileURLToPath(new URL('.', import.meta.url));
 }
-writeFileSync(join(outDir, 'entry.txt'), sentence);
+
+function deliver(): void {
+  const folder = folderOfScript();
+  const text = readFileSync(join(folder, 'entry.txt'));
+  // Fail loudly instead of handing the grader an entry the gate would
+  // reject: the bounty allows 1 to 200 characters, nothing else.
+  const length = text.toString('utf-8').length;
+  if (length < 1 || length > 200) {
+    throw new Error(`entry.txt is ${length} characters; the gate allows 1-200.`);
+  }
+  const destination = process.env.MAKEFUN_OUTPUT_DIR ?? join(folder, 'out');
+  mkdirSync(destination, { recursive: true });
+  writeFileSync(join(destination, 'entry.txt'), text);
+}
+
+deliver();
